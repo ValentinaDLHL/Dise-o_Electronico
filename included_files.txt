@@ -1,0 +1,12 @@
+.DS_Store
+.ebextensions/01_packages.config
+.ebextensions/01_python.config
+.gitignore
+.platform/hooks/prebuild/01_install_deps.sh
+README.md
+application.py
+dump.sql
+openapi.yaml
+reportes.db
+requirements.txt
+templates/mapa.html
