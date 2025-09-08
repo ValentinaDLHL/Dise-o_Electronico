@@ -1,8 +1,5 @@
 #!/bin/bash
-set -e
-
-echo "Actualizando pip, setuptools y wheel..."
-sudo pip3 install --upgrade pip setuptools wheel
-
-echo "Instalando dependencias desde requirements.txt..."
-sudo pip3 install -r requirements.txt
+yum update -y
+yum install -y gcc python3-devel postgresql-devel
+pip3 install --upgrade pip
+pip3 install --no-cache-dir -r /var/app/staging/requirements.txt
