@@ -1,66 +1,52 @@
 # app_flask.py
 # ----------------------------
-# API de reportes con Flask + SQLite
+# API de reportes con Flask + PostgreSQL
 # Acepta JSON de la app Flutter (formato viejo y nuevo),
 # guarda coordenadas y foto en base64 y muestra un mapa en "/".
 # ----------------------------
-
+import psycopg2
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from datetime import datetime
-import sqlite3
 import os
 import re
 
 APP_PORT = int(os.getenv("PORT", "8080"))
-DB_FILE = os.getenv("DB_FILE", "reportes.db")
 
-app = Flask(__name__, template_folder="templates")  # ✅ CORREGIDO
-# Permitir CORS para cualquier origen (ajústalo si lo necesitas)
+app = Flask(__name__, template_folder="templates")
 CORS(app)
 
 # ----------------------------
 # Utilidades de base de datos
 # ----------------------------
 def get_conn():
-    return sqlite3.connect(DB_FILE, check_same_thread=False)
+    return psycopg2.connect(
+        host="flaskdb.cj6u0amymnlu.us-east-2.rds.amazonaws.com", 
+        dbname="flaskdb",   
+        user="postgres",    
+        password="postgres",
+        port=5432
+    )
 
 def init_db():
-    """Crea tabla si no existe y agrega columnas nuevas si faltan."""
+    """Crea tabla si no existe."""
     conn = get_conn()
     c = conn.cursor()
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS reportes(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lat REAL,
-            lon REAL,
+            id SERIAL PRIMARY KEY,
+            lat DOUBLE PRECISION,
+            lon DOUBLE PRECISION,
             fecha TEXT,
             foto_base64 TEXT,
             mime TEXT,
             filename TEXT,
-            accuracy REAL,
+            accuracy DOUBLE PRECISION,
             created_at TEXT
         )
         """
     )
-    conn.commit()
-
-    # Asegura columnas si la DB existía de antes
-    c.execute("PRAGMA table_info(reportes)")
-    cols = {row[1] for row in c.fetchall()}
-    alters = []
-    if "mime" not in cols:
-        alters.append("ALTER TABLE reportes ADD COLUMN mime TEXT")
-    if "filename" not in cols:
-        alters.append("ALTER TABLE reportes ADD COLUMN filename TEXT")
-    if "accuracy" not in cols:
-        alters.append("ALTER TABLE reportes ADD COLUMN accuracy REAL")
-    if "created_at" not in cols:
-        alters.append("ALTER TABLE reportes ADD COLUMN created_at TEXT")
-
-    for sql in alters:
-        c.execute(sql)
     conn.commit()
     conn.close()
 
@@ -72,16 +58,11 @@ init_db()
 DATA_URI_RE = re.compile(r"^data:[^;]+;base64,")
 
 def clean_b64(s: str | None) -> str | None:
-    """Quita prefijo data:...;base64, si viene así."""
     if not s:
         return s
     return DATA_URI_RE.sub("", s)
 
 def parse_report_payload(data: dict) -> tuple[dict, list[str]]:
-    """
-    Normaliza el payload aceptando campos 'viejos' y 'nuevos'.
-    Devuelve (payload_normalizado, errores)
-    """
     errs: list[str] = []
 
     def pick(*keys, default=None):
@@ -98,7 +79,6 @@ def parse_report_payload(data: dict) -> tuple[dict, list[str]]:
     filename = pick("filename", "photo_filename")
     accuracy = pick("accuracy", "accuracy_m")
 
-    # Validaciones básicas
     try:
         lat = float(lat)
     except (TypeError, ValueError):
@@ -114,14 +94,12 @@ def parse_report_payload(data: dict) -> tuple[dict, list[str]]:
         if not (-180.0 <= lon <= 180.0):
             errs.append("lon fuera de rango (-180..180)")
 
-    # Accuracy opcional
     if accuracy is not None:
         try:
             accuracy = float(accuracy)
         except (TypeError, ValueError):
-            accuracy = None  # ignorar
+            accuracy = None
 
-    # Higiene base64
     foto_base64 = clean_b64(foto_base64)
 
     payload = {
@@ -145,17 +123,6 @@ def health():
 
 @app.post("/reportes")
 def crear_reporte():
-    """
-    Recibe JSON. Ejemplos válidos:
-    - Formato viejo:
-      {"lat": 10.1, "lon": -74.8, "fecha":"2025-08-20", "foto_base64":"..."}
-    - Formato nuevo (Flutter actual):
-      {
-        "timestamp":"2025-08-20T20:00:00Z",
-        "latitude":10.1,"longitude":-74.8,"accuracy_m":12.3,
-        "photo_base64":"...","photo_mime_type":"image/jpeg","photo_filename":"x.jpg"
-      }
-    """
     if not request.is_json:
         return jsonify({"error": "Content-Type debe ser application/json"}), 415
 
@@ -164,13 +131,13 @@ def crear_reporte():
     if errs:
         return jsonify({"error": "payload inválido", "detalles": errs}), 400
 
-    # Insertar
     conn = get_conn()
     c = conn.cursor()
     c.execute(
         """
         INSERT INTO reportes(lat, lon, fecha, foto_base64, mime, filename, accuracy, created_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
         """,
         (
             payload["lat"],
@@ -183,7 +150,7 @@ def crear_reporte():
             payload["created_at"],
         ),
     )
-    rid = c.lastrowid
+    rid = c.fetchone()[0]
     conn.commit()
     conn.close()
 
@@ -191,10 +158,6 @@ def crear_reporte():
 
 @app.get("/reportes")
 def listar_reportes():
-    """
-    Devuelve todos los reportes (filtrando nulos) ordenados por id DESC.
-    Incluye base64 (útil para tu vista web actual).
-    """
     conn = get_conn()
     c = conn.cursor()
     c.execute(
@@ -236,12 +199,10 @@ def borrar_todos():
 
 @app.get("/")
 def home():
-    # Renderiza templates/mapa.html (ya existente en tu repo)
     return render_template("mapa.html")
 
 # ----------------------------
 # Arranque
 # ----------------------------
-if __name__ == "__main__":  # ✅ CORREGIDO
-    # Escucha en todas las interfaces para que teléfonos en la red o a través de túnel puedan llegar.
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=APP_PORT)

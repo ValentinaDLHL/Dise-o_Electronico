@@ -1,0 +1,14 @@
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE reportes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    lat REAL,
+                    lon REAL,
+                    fecha TEXT,
+                    foto_base64 TEXT
+                , mime TEXT, filename TEXT, accuracy REAL, created_at TEXT);
+INSERT INTO reportes VALUES(82,7.60970000000000013,-74.08169999999999789,'2025-08-28T12:30:00Z','base64stringAqui',NULL,NULL,NULL,'2025-09-01T17:27:04');
+INSERT INTO reportes VALUES(83,4.60970000000000013,-74.08169999999999789,'2025-08-28T12:30:00Z','base64stringAqui',NULL,NULL,NULL,'2025-09-01T17:37:07');
+INSERT INTO reportes VALUES(84,3.60970000000000013,-74.08169999999999789,'2025-08-28T12:30:00Z','base64stringAqui',NULL,NULL,NULL,'2025-09-01T17:37:31');
+INSERT INTO sqlite_sequence VALUES('reportes',84);
+COMMIT;
