@@ -21,10 +21,10 @@ CORS(app)
 # ----------------------------
 def get_conn():
     return psycopg2.connect(
-        host="flaskdb.cj6u0amymnlu.us-east-2.rds.amazonaws.com", 
-        dbname="flaskdb",   
-        user="postgres",    
-        password="postgres",
+        host="database-geoalerta.cj6u0amymnlu.us-east-2.rds.amazonaws.com", 
+        dbname="database-geoalerta",   
+        user="database-geoalerta",    
+        password="GeoAlerta2025!",
         port=5432
     )
 
