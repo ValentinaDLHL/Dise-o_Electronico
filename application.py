@@ -20,12 +20,13 @@ CORS(app)
 # Utilidades de base de datos
 # ----------------------------
 def get_conn():
+    print("conectando a database-geoalerta")
     return psycopg2.connect(
         host="database-geoalerta.cj6u0amymnlu.us-east-2.rds.amazonaws.com", 
-        dbname="database-geoalerta",   
-        user="database-geoalerta",    
+        user="postgres",    
         password="GeoAlerta2025!",
-        port=5432
+        port=5432,
+        sslmode="require" 
     )
 
 def init_db():
